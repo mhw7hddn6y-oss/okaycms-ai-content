@@ -43,7 +43,9 @@ class Init extends AbstractInit
     public function init()
     {
         $this->registerBackendController('AiContentAdmin');
+        $this->registerBackendController('AiContentProductAjaxAdmin');
         $this->addBackendControllerPermission('AiContentAdmin', 'threeangle__ai_content');
+        $this->addBackendControllerPermission('AiContentProductAjaxAdmin', 'threeangle__ai_content');
         $this->addBackendBlock('product_meta_data', 'product_ai_content_block.tpl');
 
         $this->extendBackendMenu('ai_content_menu', [
