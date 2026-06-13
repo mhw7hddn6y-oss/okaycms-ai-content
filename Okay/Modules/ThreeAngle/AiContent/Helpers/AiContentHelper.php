@@ -3,11 +3,13 @@
 namespace Okay\Modules\ThreeAngle\AiContent\Helpers;
 
 use Okay\Core\EntityFactory;
+use Okay\Core\Image;
 use Okay\Core\Settings;
 use Okay\Core\Translit;
 use Okay\Entities\BlogEntity;
 use Okay\Entities\FeaturesEntity;
 use Okay\Entities\FeaturesValuesEntity;
+use Okay\Entities\ImagesEntity;
 use Okay\Entities\ProductsEntity;
 use Okay\Modules\ThreeAngle\AiContent\Entities\AiContentHistoryEntity;
 use Okay\Modules\ThreeAngle\AiContent\Providers\Text\AiTextProviderFactory;
@@ -20,12 +22,19 @@ class AiContentHelper
     private Settings $settings;
     private EntityFactory $entityFactory;
     private AiTextProviderFactory $textProviderFactory;
+    private Image $imageCore;
 
-    public function __construct(Settings $settings, EntityFactory $entityFactory, AiTextProviderFactory $textProviderFactory)
+    public function __construct(
+        Settings $settings,
+        EntityFactory $entityFactory,
+        AiTextProviderFactory $textProviderFactory,
+        Image $imageCore
+    )
     {
         $this->settings = $settings;
         $this->entityFactory = $entityFactory;
         $this->textProviderFactory = $textProviderFactory;
+        $this->imageCore = $imageCore;
     }
 
     public function saveSettings(array $settings): void
@@ -73,6 +82,23 @@ class AiContentHelper
         $result = $this->requestJson($prompt);
 
         $this->log('product', $productId, $mode, $prompt, json_encode($result, JSON_UNESCAPED_UNICODE), 'success');
+        return $result;
+    }
+
+    public function generateProductBuilder(int $productId): array
+    {
+        /** @var ProductsEntity $productsEntity */
+        $productsEntity = $this->entityFactory->get(ProductsEntity::class);
+        $product = $productsEntity->get($productId);
+        if (empty($product)) {
+            throw new \RuntimeException('Product not found.');
+        }
+
+        $imageUrls = $this->getProductImageUrls($productId);
+        $prompt = $this->buildProductBuilderPrompt($product, !empty($imageUrls));
+        $result = $this->requestJson($prompt, $imageUrls);
+
+        $this->log('product', $productId, 'builder', $prompt, json_encode($result, JSON_UNESCAPED_UNICODE), 'success');
         return $result;
     }
 
@@ -174,10 +200,51 @@ class AiContentHelper
             . "Return JSON keys: name, annotation, description, meta_title, meta_description.";
     }
 
-    private function requestJson(string $prompt): array
+    private function buildProductBuilderPrompt($product, bool $hasImage): string
     {
         $settings = $this->getSettings();
-        return $this->textProviderFactory->create($settings['provider'])->requestJson($prompt, $settings);
+
+        $imageInstruction = $hasImage
+            ? 'Use the attached product image to infer visible product type, style, color, shape, and material. Mark uncertain visual assumptions as conservative.'
+            : 'No product image is attached. Use only the product name and existing text.';
+
+        return $this->jsonInstruction() . "\n"
+            . "Language: {$settings['language']}\n"
+            . "Tone: {$settings['tone']}\n"
+            . "Task: Build a complete ecommerce product draft from minimal source data.\n"
+            . "{$imageInstruction}\n"
+            . "Product name: {$product->name}\n"
+            . "Existing short description: " . strip_tags((string)$product->annotation) . "\n"
+            . "Existing description: " . strip_tags((string)$product->description) . "\n\n"
+            . "Do not invent hidden specifications such as exact dimensions, weight, warranty, certificates, country, or delivery terms unless visibly obvious or present in text.\n"
+            . "For characteristics, propose only useful ecommerce attributes. Keep values short. If uncertain, omit the feature.\n"
+            . "Return JSON keys: annotation, description, meta_title, meta_description, meta_keywords, features.\n"
+            . "features must be an array of objects with keys: name, value.";
+    }
+
+    private function requestJson(string $prompt, array $imageUrls = []): array
+    {
+        $settings = $this->getSettings();
+        return $this->textProviderFactory->create($settings['provider'])->requestJson($prompt, $settings, $imageUrls);
+    }
+
+    private function getProductImageUrls(int $productId): array
+    {
+        /** @var ImagesEntity $imagesEntity */
+        $imagesEntity = $this->entityFactory->get(ImagesEntity::class);
+        $images = $imagesEntity->find([
+            'product_id' => $productId,
+            'limit' => 1,
+        ]) ?: [];
+
+        $urls = [];
+        foreach ($images as $image) {
+            if (!empty($image->filename)) {
+                $urls[] = $this->imageCore->getResizeModifier($image->filename, 800, 800);
+            }
+        }
+
+        return $urls;
     }
 
     private function getProductFeatures(int $productId): string

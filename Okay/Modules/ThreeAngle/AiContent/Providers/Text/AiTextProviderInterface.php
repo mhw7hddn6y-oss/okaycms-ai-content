@@ -4,5 +4,5 @@ namespace Okay\Modules\ThreeAngle\AiContent\Providers\Text;
 
 interface AiTextProviderInterface
 {
-    public function requestJson(string $prompt, array $settings): array;
+    public function requestJson(string $prompt, array $settings, array $imageUrls = []): array;
 }

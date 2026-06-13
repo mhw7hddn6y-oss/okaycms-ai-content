@@ -22,9 +22,15 @@ class AiContentProductAjaxAdmin extends IndexAdmin
                 throw new \RuntimeException('Product ID is required.');
             }
 
+            if ($mode === 'builder') {
+                $content = $aiContentHelper->generateProductBuilder($productId);
+            } else {
+                $content = $aiContentHelper->generateProductContent($productId, $mode);
+            }
+
             $result = [
                 'success' => true,
-                'content' => $aiContentHelper->generateProductContent($productId, $mode),
+                'content' => $content,
             ];
         } catch (\Throwable $e) {
             $result['error'] = $e->getMessage();

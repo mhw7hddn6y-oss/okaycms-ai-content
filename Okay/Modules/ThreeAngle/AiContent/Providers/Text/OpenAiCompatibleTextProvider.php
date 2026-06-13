@@ -4,11 +4,13 @@ namespace Okay\Modules\ThreeAngle\AiContent\Providers\Text;
 
 class OpenAiCompatibleTextProvider implements AiTextProviderInterface
 {
-    public function requestJson(string $prompt, array $settings): array
+    public function requestJson(string $prompt, array $settings, array $imageUrls = []): array
     {
         if ($settings['api_key'] === '') {
             throw new \RuntimeException($settings['provider_label'] . ' API key is empty.');
         }
+
+        $userContent = $this->buildUserContent($prompt, $imageUrls);
 
         $payload = [
             'model' => $settings['model'],
@@ -19,7 +21,7 @@ class OpenAiCompatibleTextProvider implements AiTextProviderInterface
                 ],
                 [
                     'role' => 'user',
-                    'content' => $prompt,
+                    'content' => $userContent,
                 ],
             ],
             'temperature' => $settings['temperature'],
@@ -39,6 +41,35 @@ class OpenAiCompatibleTextProvider implements AiTextProviderInterface
         }
 
         return $json;
+    }
+
+    private function buildUserContent(string $prompt, array $imageUrls)
+    {
+        if (empty($imageUrls)) {
+            return $prompt;
+        }
+
+        $content = [
+            [
+                'type' => 'text',
+                'text' => $prompt,
+            ],
+        ];
+
+        foreach ($imageUrls as $imageUrl) {
+            if ($imageUrl === '') {
+                continue;
+            }
+
+            $content[] = [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => $imageUrl,
+                ],
+            ];
+        }
+
+        return $content;
     }
 
     private function postJson(string $url, string $apiKey, array $payload, string $provider): array

@@ -11,6 +11,7 @@ Included:
 - product content generation by product ID;
 - product SEO generation by product ID;
 - inline product edit buttons that generate drafts directly into product fields;
+- AI product builder mode: creates product text, SEO, and suggested characteristics from name plus the first product image;
 - applying generated product fields after manager review;
 - blog article draft generation by topic;
 - creating generated blog articles as hidden drafts;
