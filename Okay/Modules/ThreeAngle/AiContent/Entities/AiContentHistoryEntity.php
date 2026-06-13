@@ -12,6 +12,7 @@ class AiContentHistoryEntity extends Entity
         'entity_id',
         'action',
         'language',
+        'provider',
         'model',
         'prompt',
         'result',

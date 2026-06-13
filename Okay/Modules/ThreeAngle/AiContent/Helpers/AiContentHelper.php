@@ -10,25 +10,32 @@ use Okay\Entities\FeaturesEntity;
 use Okay\Entities\FeaturesValuesEntity;
 use Okay\Entities\ProductsEntity;
 use Okay\Modules\ThreeAngle\AiContent\Entities\AiContentHistoryEntity;
-use Orhanerday\OpenAi\OpenAi;
+use Okay\Modules\ThreeAngle\AiContent\Providers\Text\AiTextProviderFactory;
 
 class AiContentHelper
 {
+    private const DEFAULT_PROVIDER = 'openai';
     private const DEFAULT_MODEL = 'gpt-4o-mini';
 
     private Settings $settings;
     private EntityFactory $entityFactory;
+    private AiTextProviderFactory $textProviderFactory;
 
-    public function __construct(Settings $settings, EntityFactory $entityFactory)
+    public function __construct(Settings $settings, EntityFactory $entityFactory, AiTextProviderFactory $textProviderFactory)
     {
         $this->settings = $settings;
         $this->entityFactory = $entityFactory;
+        $this->textProviderFactory = $textProviderFactory;
     }
 
     public function saveSettings(array $settings): void
     {
+        $provider = $this->normalizeProvider((string)($settings['provider'] ?? self::DEFAULT_PROVIDER));
+        $model = trim((string)($settings['model'] ?? ''));
+
+        $this->settings->set('threeangle_ai_content_provider', $provider);
         $this->settings->set('threeangle_ai_content_api_key', trim((string)($settings['api_key'] ?? '')));
-        $this->settings->set('threeangle_ai_content_model', trim((string)($settings['model'] ?? self::DEFAULT_MODEL)));
+        $this->settings->set('threeangle_ai_content_model', $model !== '' ? $model : $this->getProviderDefaultModel($provider));
         $this->settings->set('threeangle_ai_content_language', trim((string)($settings['language'] ?? 'uk')));
         $this->settings->set('threeangle_ai_content_tone', trim((string)($settings['tone'] ?? 'expert')));
         $this->settings->set('threeangle_ai_content_max_tokens', (int)($settings['max_tokens'] ?? 1400));
@@ -37,9 +44,15 @@ class AiContentHelper
 
     public function getSettings(): array
     {
+        $provider = $this->normalizeProvider((string)$this->settings->get('threeangle_ai_content_provider'));
+        $model = (string)$this->settings->get('threeangle_ai_content_model');
+
         return [
+            'provider' => $provider,
+            'provider_label' => $this->getProviderLabel($provider),
+            'base_url' => $this->getProviderBaseUrl($provider),
             'api_key' => (string)$this->settings->get('threeangle_ai_content_api_key'),
-            'model' => (string)$this->settings->get('threeangle_ai_content_model') ?: self::DEFAULT_MODEL,
+            'model' => $model !== '' ? $model : $this->getProviderDefaultModel($provider),
             'language' => (string)$this->settings->get('threeangle_ai_content_language') ?: 'uk',
             'tone' => (string)$this->settings->get('threeangle_ai_content_tone') ?: 'expert',
             'max_tokens' => (int)$this->settings->get('threeangle_ai_content_max_tokens') ?: 1400,
@@ -164,40 +177,7 @@ class AiContentHelper
     private function requestJson(string $prompt): array
     {
         $settings = $this->getSettings();
-        if ($settings['api_key'] === '') {
-            throw new \RuntimeException('OpenAI API key is empty.');
-        }
-
-        $openAi = new OpenAi($settings['api_key']);
-        $response = $openAi->chat([
-            'model' => $settings['model'],
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an ecommerce content assistant. Return valid JSON only.',
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt,
-                ],
-            ],
-            'temperature' => $settings['temperature'],
-            'max_tokens' => $settings['max_tokens'],
-        ]);
-
-        $decoded = json_decode($response, true);
-        $content = $decoded['choices'][0]['message']['content'] ?? null;
-        if (!$content) {
-            $message = $decoded['error']['message'] ?? 'OpenAI returned an empty response.';
-            throw new \RuntimeException($message);
-        }
-
-        $json = json_decode($this->stripJsonFence($content), true);
-        if (!is_array($json)) {
-            throw new \RuntimeException('AI response is not valid JSON.');
-        }
-
-        return $json;
+        return $this->textProviderFactory->create($settings['provider'])->requestJson($prompt, $settings);
     }
 
     private function getProductFeatures(int $productId): string
@@ -234,6 +214,7 @@ class AiContentHelper
             'entity_id' => $entityId,
             'action' => $action,
             'language' => $settings['language'],
+            'provider' => $settings['provider'],
             'model' => $settings['model'],
             'prompt' => $prompt,
             'result' => $result,
@@ -248,12 +229,45 @@ class AiContentHelper
         return 'Respond with a single valid JSON object. Do not wrap JSON in markdown.';
     }
 
-    private function stripJsonFence(string $content): string
+    private function normalizeProvider(string $provider): string
     {
-        $content = trim($content);
-        $content = preg_replace('/^```json\s*/i', '', $content);
-        $content = preg_replace('/^```\s*/', '', $content);
-        $content = preg_replace('/\s*```$/', '', $content);
-        return trim($content);
+        $provider = trim($provider);
+        return in_array($provider, ['openai', 'openrouter', 'groq', 'gemini'], true) ? $provider : self::DEFAULT_PROVIDER;
+    }
+
+    private function getProviderLabel(string $provider): string
+    {
+        $labels = [
+            'openai' => 'OpenAI',
+            'openrouter' => 'OpenRouter',
+            'groq' => 'Groq',
+            'gemini' => 'Google Gemini',
+        ];
+
+        return $labels[$provider] ?? 'OpenAI';
+    }
+
+    private function getProviderBaseUrl(string $provider): string
+    {
+        $urls = [
+            'openai' => 'https://api.openai.com/v1/chat/completions',
+            'openrouter' => 'https://openrouter.ai/api/v1/chat/completions',
+            'groq' => 'https://api.groq.com/openai/v1/chat/completions',
+            'gemini' => 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        ];
+
+        return $urls[$provider] ?? $urls[self::DEFAULT_PROVIDER];
+    }
+
+    private function getProviderDefaultModel(string $provider): string
+    {
+        $models = [
+            'openai' => self::DEFAULT_MODEL,
+            'openrouter' => 'openrouter/free',
+            'groq' => 'llama-3.1-8b-instant',
+            'gemini' => 'gemini-2.5-flash-lite',
+        ];
+
+        return $models[$provider] ?? self::DEFAULT_MODEL;
     }
 }

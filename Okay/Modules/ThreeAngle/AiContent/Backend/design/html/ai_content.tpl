@@ -23,13 +23,24 @@
         <div class="row">
             <div class="col-lg-6 col-md-12">
                 <div class="mb-1">
-                    <div class="heading_label">OpenAI API key</div>
+                    <div class="heading_label">Text provider</div>
+                    <select class="selectpicker form-control" name="settings[provider]" id="ai_content_provider">
+                        <option value="openai" data-model="gpt-4o-mini" {if $ai_settings.provider == 'openai'}selected{/if}>OpenAI</option>
+                        <option value="openrouter" data-model="openrouter/free" {if $ai_settings.provider == 'openrouter'}selected{/if}>OpenRouter</option>
+                        <option value="groq" data-model="llama-3.1-8b-instant" {if $ai_settings.provider == 'groq'}selected{/if}>Groq</option>
+                        <option value="gemini" data-model="gemini-2.5-flash-lite" {if $ai_settings.provider == 'gemini'}selected{/if}>Google Gemini</option>
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <div class="heading_label">API key</div>
                     <input class="form-control" type="password" name="settings[api_key]" value="{$ai_settings.api_key|escape}">
                 </div>
                 <div class="mb-1">
                     <div class="heading_label">Model</div>
-                    <input class="form-control" type="text" name="settings[model]" value="{$ai_settings.model|escape}">
+                    <input class="form-control" type="text" name="settings[model]" id="ai_content_model" value="{$ai_settings.model|escape}">
                 </div>
+            </div>
+            <div class="col-lg-6 col-md-12">
                 <div class="mb-1">
                     <div class="heading_label">Language</div>
                     <select class="selectpicker form-control" name="settings[language]">
@@ -38,8 +49,6 @@
                         <option value="en" {if $ai_settings.language == 'en'}selected{/if}>English</option>
                     </select>
                 </div>
-            </div>
-            <div class="col-lg-6 col-md-12">
                 <div class="mb-1">
                     <div class="heading_label">Tone</div>
                     <select class="selectpicker form-control" name="settings[tone]">
@@ -137,6 +146,7 @@
                 <div class="okay_list_heading">Date</div>
                 <div class="okay_list_heading">Entity</div>
                 <div class="okay_list_heading">Action</div>
+                <div class="okay_list_heading">Provider</div>
                 <div class="okay_list_heading">Model</div>
                 <div class="okay_list_heading">Status</div>
             </div>
@@ -147,6 +157,7 @@
                             <div class="okay_list_boding">{$item->created_at|escape}</div>
                             <div class="okay_list_boding">{$item->entity_type|escape} {if $item->entity_id}#{$item->entity_id|escape}{/if}</div>
                             <div class="okay_list_boding">{$item->action|escape}</div>
+                            <div class="okay_list_boding">{$item->provider|escape}</div>
                             <div class="okay_list_boding">{$item->model|escape}</div>
                             <div class="okay_list_boding">{$item->status|escape}</div>
                         </div>
@@ -158,3 +169,21 @@
         <div class="text_grey">No generations yet.</div>
     {/if}
 </div>
+
+<script>
+    (function () {
+        var provider = document.getElementById('ai_content_provider');
+        var model = document.getElementById('ai_content_model');
+
+        if (!provider || !model) {
+            return;
+        }
+
+        provider.addEventListener('change', function () {
+            var selected = provider.options[provider.selectedIndex];
+            if (selected && selected.getAttribute('data-model')) {
+                model.value = selected.getAttribute('data-model');
+            }
+        });
+    }());
+</script>

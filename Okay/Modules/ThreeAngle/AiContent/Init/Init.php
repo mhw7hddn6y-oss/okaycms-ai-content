@@ -11,12 +11,26 @@ class Init extends AbstractInit
     public function install()
     {
         $this->setBackendMainController('AiContentAdmin');
+        $this->migrateHistoryTable();
+    }
+
+    public function update_1_0_1()
+    {
+        $this->migrateEntityField(
+            AiContentHistoryEntity::class,
+            (new EntityField('provider'))->setTypeVarchar(32)->setDefault('openai')
+        );
+    }
+
+    private function migrateHistoryTable()
+    {
         $this->migrateEntityTable(AiContentHistoryEntity::class, [
             (new EntityField('id'))->setIndexPrimaryKey()->setTypeInt(11, false)->setAutoIncrement(),
             (new EntityField('entity_type'))->setTypeVarchar(32),
             (new EntityField('entity_id'))->setTypeInt(11)->setNullable(),
             (new EntityField('action'))->setTypeVarchar(64),
             (new EntityField('language'))->setTypeVarchar(8),
+            (new EntityField('provider'))->setTypeVarchar(32)->setDefault('openai'),
             (new EntityField('model'))->setTypeVarchar(64),
             (new EntityField('prompt'))->setTypeText(),
             (new EntityField('result'))->setTypeText()->setNullable(),
