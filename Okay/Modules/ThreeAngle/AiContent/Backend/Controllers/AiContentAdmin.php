@@ -47,6 +47,8 @@ class AiContentAdmin extends IndexAdmin
 
         $this->design->assign('ai_settings', $aiContentHelper->getSettings());
         $this->design->assign('ai_history', $aiContentHelper->getRecentHistory());
+        $this->design->assign('prefill_product_id', $this->request->get('product_id', 'integer'));
+        $this->design->assign('prefill_product_mode', $this->request->get('product_mode', 'string') ?: 'description');
         $this->design->assign('generated', $generated);
         $this->design->assign('message_success', $messageSuccess);
         $this->design->assign('message_error', $messageError);

@@ -10,6 +10,7 @@ Included:
 - OpenAI-compatible text provider layer for OpenAI, OpenRouter, Groq, and Google Gemini compatibility endpoints;
 - product content generation by product ID;
 - product SEO generation by product ID;
+- quick entry buttons from the product edit screen to prefill product generation;
 - applying generated product fields after manager review;
 - blog article draft generation by topic;
 - creating generated blog articles as hidden drafts;

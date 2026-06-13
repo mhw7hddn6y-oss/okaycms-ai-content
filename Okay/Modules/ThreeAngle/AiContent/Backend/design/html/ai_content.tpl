@@ -80,13 +80,13 @@
                 <div class="heading_box">Generate product content</div>
                 <div class="mb-1">
                     <div class="heading_label">Product ID</div>
-                    <input class="form-control" type="number" name="product_id" min="1" required>
+                    <input class="form-control" type="number" name="product_id" min="1" value="{$prefill_product_id|escape}" required>
                 </div>
                 <div class="mb-1">
                     <div class="heading_label">Mode</div>
                     <select class="selectpicker form-control" name="product_mode">
-                        <option value="description">Descriptions</option>
-                        <option value="seo">SEO fields</option>
+                        <option value="description" {if $prefill_product_mode == 'description'}selected{/if}>Descriptions</option>
+                        <option value="seo" {if $prefill_product_mode == 'seo'}selected{/if}>SEO fields</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn_small btn_blue">Generate</button>

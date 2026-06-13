@@ -44,6 +44,7 @@ class Init extends AbstractInit
     {
         $this->registerBackendController('AiContentAdmin');
         $this->addBackendControllerPermission('AiContentAdmin', 'threeangle__ai_content');
+        $this->addBackendBlock('product_meta_data', 'product_ai_content_block.tpl');
 
         $this->extendBackendMenu('ai_content_menu', [
             'ai_content_menu' => ['AiContentAdmin'],
